@@ -66,6 +66,24 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   if (!message || !message.type || !message.timestamp) return;
   console.log("🔥 BACKGROUND RECEIVED:", message);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Retrieve user identity details from chrome.storage.local
   chrome.storage.local.get({ participantId: null, participantName: "", events: [] }, (data) => {
     let pid = data.participantId;
