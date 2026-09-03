@@ -8,13 +8,12 @@
 
   "host_permissions": [
     "https://codeforces.com/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*"
+     "http://100.130.114.40:8000/*"
   ],
 
   "content_scripts": [
     {
-      "matches": ["https://codeforces.com/","http://localhost/*"],
+      "matches": ["https://codeforces.com/*"],
       "js": ["content.js"],
       "run_at": "document_start"
     }

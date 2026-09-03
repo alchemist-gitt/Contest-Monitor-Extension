@@ -8,7 +8,7 @@ const MAX_EVENTS = 500;
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (!message || !message.type || !message.timestamp) return;
   console.log("🔥 BACKGROUND RECEIVED:", message);
-  fetch("http://127.0.0.1:8000/event", {
+  fetch("http://100.130.114.40:8000/event", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"

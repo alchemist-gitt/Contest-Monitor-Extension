@@ -79,14 +79,14 @@ function sendEvent(type) {
 }
 
 // Page visibility listener (tab switching)
-document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-        sendEvent("PAGE_HIDDEN");
-        playBeep();
-    } else {
-        sendEvent("PAGE_VISIBLE");
-    }
-});
+// document.addEventListener("visibilitychange", () => {
+//     if (document.hidden) {
+//         sendEvent("PAGE_HIDDEN");
+//         playBeep();
+//     } else {
+//         sendEvent("PAGE_VISIBLE");
+//     }
+// });
 
 // Window focus/blur listeners (Alt+Tab, shifting apps, click on another monitor)
 window.addEventListener("blur", () => {
