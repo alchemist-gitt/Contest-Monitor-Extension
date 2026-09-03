@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Contest Monitor</title>
+<style>
+  :root {
+    --bg: #12141a;
+    --panel: #191c24;
+    --line: #262a35;
+    --text: #e7e6e2;
+    --muted: #868c99;
+    --ok: #6fbf8b;
+    --alert: #e0a052;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    width: 340px;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+
+  header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+
+  header .stage {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .status-row {
+    padding: 10px 16px;
+    display: flex;
+    gap: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat .value {
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat .label {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .stat.alert .value { color: var(--alert); }
+  .stat.ok .value { color: var(--ok); }
+
+  #log {
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+
+  .row:hover { background: var(--panel); }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot.alert { background: var(--alert); }
+  .dot.ok { background: var(--ok); }
+
+  .row .type {
+    flex: 1;
+  }
+
+  .row .time {
+    color: var(--muted);
+  }
+
+  .empty {
+    padding: 24px 16px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  button {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  button:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Contest Monitor</h1>
+    <span class="stage">Stage 1 · local log</span>
+  </header>
+
+  <div class="status-row">
+    <div class="stat alert">
+      <span class="value" id="alertCount">0</span>
+      <span class="label">focus lost</span>
+    </div>
+    <div class="stat ok">
+      <span class="value" id="okCount">0</span>
+      <span class="label">focus regained</span>
+    </div>
+  </div>
+
+  <div id="log"><div class="empty">No events yet — switch tabs or Alt+Tab on the test page.</div></div>
+
+  <footer>
+    <button id="clear">Clear log</button>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

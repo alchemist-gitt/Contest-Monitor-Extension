@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Contest Focus Monitor",
+  "version": "0.1.0",
+  "description": "Stage 1: detects contest page visibility/focus changes and logs them locally.",
+
+  "permissions": ["storage"],
+
+  "host_permissions": [
+    "https://codeforces.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["https://codeforces.com/","http://localhost/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Contest Monitor (Stage 1)"
+  }
+}
