@@ -1,102 +1,86 @@
-# Contest Monitor
+Contest Monitor: Browser Visibility & Integrity Tracker
+A lightweight, local-network browser extension and Python backend designed to monitor focus, tab switching, and window blurring during online coding contests (e.g., Codeforces) to assist in fair-play evaluation [4].
 
-A Chrome extension + local server for fair peer coding contests. Built in stages.
+Architecture Overview
+[ Participant Laptop ]                          [ Organizer Laptop ]
++----------------------------+                  +----------------------------+
+| Chrome Browser             |                  | FastAPI Python Backend     |
+|  - Content Script          |  Event Payload   |  - Parses User Details     |
+|  - Background Worker  ==== | ===============> |  - Live Terminal Logger    |
+|  - Pop-up Configuration    |  (JSON over IP)  |  - (Upcoming Database)     |
++----------------------------+                  +----------------------------+
+Content Script (content.js): Injected directly into Codeforces. Listens for browser-level visibility drops (switching tabs, minimizing) and system-level focus losses (Alt+Tab, clicking onto a second monitor) [6].
+Lifecycle Safeguard: Intelligent tracking suppresses false-positive "unloading" beeps when navigating page-to-page within Codeforces.
+Background Worker (background.js): Pairs focus-loss events with a persistent user UUID and custom handle before transmitting them over the network to the coordinator's server.
+Popup (popup.html / popup.js): Provides a visual debug interface for the participant, allowing them to verify their tracking status and enter their display name.
+Python Server (main.py): Runs a FastAPI server that receives data streams from all participants over local Wi-Fi, formatting and printing live integrity logs to the console.
+👤 Participant / User Guide
+1. Download the Extension
+Get the extension folder directly from the organizer (via ZIP, shared folder, or a Git clone).
+Extract the folder contents to a safe place on your desktop.
+2. Install the Extension in Chrome
+Open Google Chrome and type chrome://extensions/ in your URL bar.
+Enable Developer mode using the toggle switch in the top-right corner.
+Click the Load unpacked button in the top-left corner.
+Select the extension/ folder you just extracted.
+In your extension toolbar (the puzzle piece icon in Chrome), click the pin icon next to Contest Focus Monitor so it sits permanently on your bar.
+3. Enter Your Details
+Click the extension icon in your Chrome toolbar.
+In the input box under "Participant Name / Handle", type your real name or Codeforces handle.
+Note: Your unique ID (e.g., usr_x3d892ba193f) is automatically generated and stays persistent across reloads.
+4. Active Monitoring
+Keep the extension running during your contest.
+If you click out of your contest tab, minimize Chrome, or Alt+Tab to another app, you will hear a subtle beep warning you of focus loss, and your event will be logged [6].
+Note: Navigating between different problems on Codeforces is safe and will not trigger false warning beeps.
+🛠️ Developer / Organizer Guide
+1. Configure Server Host Resolution
+Before distributing the extension to participants, you must hardcode your computer's local network IP address in the configuration files so their browsers know where to send the focus logs.
 
-## Stages
+Step A: Find Your Local IP Address
+Connect your host machine to the shared Wi-Fi network and find its local IP:
 
-```
-Stage 1 (this drop)   Extension detects visibility/blur/focus, logs locally
-Stage 2               Extension plays a warning sound on violation
-Stage 3               Extension POSTs/WebSockets events to a local FastAPI server
-Stage 4               FastAPI timestamps + stores events in SQLite
-Stage 5               Live dashboard (served by FastAPI) shows events per participant
-```
+Windows (cmd): Run ipconfig and find the "IPv4 Address" under your active Wi-Fi adapter.
+Mac/Linux (Terminal): Run ifconfig or ip route (usually starts with 192.168.x.x or 10.x.x.x).
+Step B: Update the Extension Source Files
+Update the following files in your code before participants load them:
 
-Only Stage 1 is implemented right now — the `extension/` folder. `server/` and
-`dashboard/` don't exist yet; they get created in later stages.
+extension/manifest.json: Add your host IP to the allowed domains list so Chrome security doesn't block outgoing transmissions:
 
-## Folder structure (target, for reference)
+"host_permissions": [
+  "https://codeforces.com/*",
+  "http://YOUR_HOST_IP_HERE:8000/*"
+]
+extension/background.js: Update the target endpoint fetch destination:
 
-```
-contest-monitor/
-├── extension/              # Stage 1 ← built now
-│   ├── manifest.json
-│   ├── content.js
-│   ├── background.js
-│   ├── popup.html
-│   └── popup.js
-├── server/                 # Stage 3+ (not built yet)
-│   ├── main.py
-│   ├── database.py
-│   └── requirements.txt
-├── dashboard/               # Stage 5 (not built yet)
-│   └── index.html
-└── test-page/               # scratch page for testing only, not part of the product
-    └── index.html
-```
+fetch("http://YOUR_HOST_IP_HERE:8000/event", { ... })
+2. Spin Up the Backend Server
+Run the FastAPI logging server on your coordinator machine. Ensure that the host is bound to 0.0.0.0 so that external network requests can pass through:
 
-## Stage 1: what it does
+Requirements
+Install the minimal routing and execution dependencies:
 
-- `content.js` runs on the contest page and listens for:
-  - `visibilitychange` → tab switched, minimized, or moved to another virtual desktop
-  - `blur` / `focus` → the browser window itself lost/regained OS-level focus (e.g. Alt+Tab
-    to another app, or clicking a second monitor)
-- Each event is timestamped **at the moment it happens** and handed to `background.js`
-  (the MV3 service worker) via `chrome.runtime.sendMessage`.
-- `background.js` keeps the last 500 events in `chrome.storage.local` (nothing leaves
-  the machine yet — that's Stage 3).
-- `popup.html` / `popup.js` is a small debug view so you can watch events arrive live
-  while you test, with a button to clear the log.
+pip install fastapi uvicorn
+Run Server
+Execute your Python application:
 
-It does **not** read page content, keystrokes, clipboard, screen, microphone, or files.
-It only observes the two browser APIs above for the tab it's injected into.
+python main.py
+(The server will initialize on port 8000 and start accepting multi-client payloads).
 
-## Try it
+3. How to Read Server Terminal Output
+When participants switch tabs or Alt+Tab, their devices send structured JSON packets. Your server will process these in real time, showing clearly labeled entries:
 
-1. **Load the extension**
-   - Go to `chrome://extensions`
-   - Enable "Developer mode" (top right)
-   - Click "Load unpacked" → select the `extension/` folder
-   - Pin the extension so you can see its popup
-
-2. **Serve a test page** (stand-in for your real contest site — `test-page/index.html`
-   is just a blank page for triggering events against, since the extension is currently
-   scoped to `http://localhost/*`)
-   ```bash
-   cd test-page
-   python3 -m http.server 8000
-   ```
-   Then open `http://localhost:8000/` in Chrome.
-
-3. **Trigger events** and watch the popup update live:
-   - Switch to another tab → `PAGE_HIDDEN`
-   - Switch back → `PAGE_VISIBLE`
-   - Alt+Tab to another application → `WINDOW_BLUR`
-   - Alt+Tab back → `WINDOW_FOCUS`
-   - Minimize the window → `PAGE_HIDDEN` (and usually `WINDOW_BLUR` too)
-
-4. When you're ready to point it at your real contest site, edit the two URL lists
-   in `manifest.json` (`host_permissions` and `content_scripts[0].matches`).
-
-## What Stage 1 can and can't tell you
-
-**Reliable:**
-- Tab switches and window minimizing (`visibilitychange`)
-- The browser window losing OS focus to another app or monitor (`blur`/`focus`)
-- Combining both signals catches the case a single one misses — e.g. on some
-  multi-monitor setups a window can lose focus without ever becoming "hidden."
-
-**Not reliable / not possible from a content script:**
-- *What* the participant switched to (another IDE, ChatGPT, their phone) — only that
-  focus left the page. Distinguishing destinations needs OS-level software, which is
-  a different category of tool than a browser extension.
-- A second physical device (phone, second laptop) is invisible to this extension entirely.
-- A participant who disables or removes the extension — they control their own browser,
-  so this is a *fair-play aid*, not a tamper-proof anti-cheat boundary. Extensions like
-  "Disable Page Visibility" exist specifically to suppress these exact signals.
-- Exact browser/OS behavior for `blur` on some virtual-desktop switches varies slightly
-  by platform — treat single missed events as noise, and look at patterns over the
-  contest rather than any one event in isolation.
-
-Later stages (fullscreen-exit detection, server-side logging, optional stricter lockdown)
-build on top of this rather than trying to fix these fundamental limits.
+============================================================
+📥 NEW EVENT RECEIVED
+👤 Participant Name : CodeforcesMaster_99
+🔑 Participant ID   : usr_7a4bf02e81c3
+⚡ Event Type       : PAGE_HIDDEN
+⏰ Timestamp        : 2026-09-03 12:25:46.324
+🌐 Contest Page URL : https://codeforces.com/problemset
+============================================================
+⚠️ Troubleshooting
+No events showing up on the server?
+Ensure both the host server and the participants are on the exact same Wi-Fi network.
+Verify that firewalls on the coordinator machine allow incoming connections on port 8000.
+Ensure the participant refreshed their active Codeforces page after reloading the extension.
+Are warning beeps playing when clicking on Codeforces problems?
+Check that content.js successfully registered the beforeunload listener. This should prevent the browser transition states from trigger-firing while navigating internal pages.
