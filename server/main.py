@@ -4,6 +4,7 @@
 # and saves logs both globally in SQLite and individually per user in separate files.
 
 import os
+import threading
 import csv
 import sqlite3
 import re
@@ -13,7 +14,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
-
+from playsound3 import playsound
 app = FastAPI(title="Contest Monitor Backend - Stage 4")
 
 # Enable CORS so the extension's background script can make fetch requests from other devices
@@ -28,9 +29,32 @@ app.add_middleware(
 # Configuration
 DATABASE_FILE = "contest_monitor.db"
 LOGS_DIR = Path("user_logs")
-
+SOUNDS_DIR=Path("sounds")
 # Ensure the logs directory exists
 LOGS_DIR.mkdir(exist_ok=True)
+SOUNDS_DIR.mkdir(exist_ok=True)
+
+#sound loading and playing
+def play_participant_sound(participant_name: str):
+
+    sound_file = SOUNDS_DIR / f"{participant_name}.mp3"
+
+    if not sound_file.exists():
+        sound_file = SOUNDS_DIR / "default.mp3"
+
+    if not sound_file.exists():
+        print(
+            f"⚠️ No sound found for participant "
+            f"{participant_name}"
+        )
+        return
+
+    try:
+        print(f"🔊 Playing: {sound_file}")
+        playsound(str(sound_file))
+
+    except Exception as e:
+        print(f"❌ Audio error: {e}")
 
 
 # Database Initialization
@@ -112,6 +136,7 @@ def log_to_database(event: FocusEvent, readable_time: str):
 
 
 @app.get("/")
+
 def read_root():
     return {
         "status": "active",
@@ -138,6 +163,15 @@ def receive_event(event: FocusEvent):
         # Print internal server errors to the terminal so the developer can troubleshoot
         print(f"❌ Error saving event: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error saving logs.")
+
+    try:
+        threading.Thread(
+    target=play_participant_sound,
+    args=(event.participant_id,),
+    daemon=True
+    ).start()
+    except Exception as e:
+        print(f"error in playing sound : {e}")
     
     # Beautiful server-side console printout
     print(f"\n" + "="*60)
