@@ -39,11 +39,14 @@ SOUNDS_DIR.mkdir(exist_ok=True)
 
 #sound loading and playing
 def play_participant_sound(participant_name: str):
-
-    sound_file = SOUNDS_DIR / f"{participant_name}.mp3"
+    if(participant_name=="shaurya"):
+        sound_file=sound_file = SOUNDS_DIR / f"{participant_name}.mp3"
+    else:
+        sound_file = SOUNDS_DIR / f"{participant_name}.m4a"
+    
 
     if not sound_file.exists():
-        sound_file = SOUNDS_DIR / "default.mp3"
+        sound_file = SOUNDS_DIR / "shaurya.mp3"
 
     if not sound_file.exists():
         print(
