@@ -8,6 +8,7 @@ import threading
 import csv
 import sqlite3
 import re
+import time
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from playsound3 import playsound
 app = FastAPI(title="Contest Monitor Backend - Stage 4")
+
+lastBlur = time.perf_counter()
 
 # Enable CORS so the extension's background script can make fetch requests from other devices
 app.add_middleware(
@@ -144,15 +147,73 @@ def read_root():
         "database": DATABASE_FILE,
         "logs_directory": str(LOGS_DIR)
     }
+def get_previous_event(participant_id: str):
+    """
+    Gets the most recent event for this participant
+    from the SQLite database.
+    """
 
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT event_type, url, timestamp
+        FROM events
+        WHERE participant_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (participant_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if row is None:
+        return None
+
+    return {
+        "type": row[0],
+        "url": row[1],
+        "timestamp": row[2]
+    }
 
 @app.post("/event")
+
 def receive_event(event: FocusEvent):
     # Convert milliseconds timestamp to a readable datetime format
     dt_object = datetime.fromtimestamp(event.timestamp / 1000.0)
     readable_time = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    
+    global lastBlur
     try:
+        curr_event = event
+        previous_event = get_previous_event(event.participant_id)
+
+        should_play_sound = False;
+
+        if(curr_event.type=="MONITOR_START"):
+            print("running")
+            should_play_sound=False;
+        
+        else:
+            if(previous_event is not None):
+
+                if(curr_event.type == "WINDOW_BLUR" and curr_event.url==previous_event["url"]):
+                    lastBlur = time.perf_counter()
+                    print("lastblur: ",lastBlur)
+                    should_play_sound = False
+                elif(curr_event.type == "WINDOW_FOCUS"):
+                    focusTime=time.perf_counter()
+                    elapsedTime=focusTime-lastBlur
+                    print("elapsedTime: ",elapsedTime)
+                    should_play_sound=elapsedTime>1.2
+
+                    
+            
+
+        
+
+
+
+
         # 1. central structured database
         log_to_database(event, readable_time)
         
@@ -165,24 +226,25 @@ def receive_event(event: FocusEvent):
         raise HTTPException(status_code=500, detail="Internal server error saving logs.")
 
     try:
-        threading.Thread(
-    target=play_participant_sound,
-    args=(event.participant_id,),
-    daemon=True
-    ).start()
+        if(should_play_sound):
+            threading.Thread(
+                target=play_participant_sound,
+                args=(event.participant_id,),
+                daemon=True
+            ).start()
     except Exception as e:
         print(f"error in playing sound : {e}")
     
     # Beautiful server-side console printout
-    print(f"\n" + "="*60)
-    print(f" NEW EVENT RECORDED (Saved to Database & Individual Log)")
-    print(f" Participant Name : {event.participant_name}")
-    print(f" Participant ID   : {event.participant_id}")
-    print(f" Event Type       : {event.type}")
-    print(f" Timestamp        : {readable_time}")
-    print(f" Log File         : {LOGS_DIR}/{event.participant_id}_{sanitize_filename(event.participant_name)}.csv")
-    print(f"url :{event.url}")
-    print("="*60 + "\n")
+    # print(f"\n" + "="*60)
+    # print(f" NEW EVENT RECORDED (Saved to Database & Individual Log)")
+    # print(f" Participant Name : {event.participant_name}")
+    # print(f" Participant ID   : {event.participant_id}")
+    # print(f" Event Type       : {event.type}")
+    # print(f" Timestamp        : {readable_time}")
+    # print(f" Log File         : {LOGS_DIR}/{event.participant_id}_{sanitize_filename(event.participant_name)}.csv")
+    # print(f"url :{event.url}")
+    # print("="*60 + "\n")
     
     return {
         "status": "success",
